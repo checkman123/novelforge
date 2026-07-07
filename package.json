@@ -1,0 +1,36 @@
+{
+  "name": "novelforge",
+  "description": "Chrome extension that turns supported web-novel sites into clean EPUB files, entirely client-side.",
+  "private": true,
+  "version": "0.1.2",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
+    "build:ui": "vite build",
+    "build:content": "vite build --config vite.content.config.ts",
+    "build": "npm run typecheck && npm run build:ui && npm run build:content",
+    "dev:ui": "vite build --watch",
+    "dev:content": "vite build --watch --config vite.content.config.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "idb": "^8.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "webextension-polyfill": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.280",
+    "@types/jsdom": "^28.0.3",
+    "@types/node": "^26.1.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/webextension-polyfill": "^0.12.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^29.1.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
+  }
+}
