@@ -103,6 +103,22 @@ export function computeProgress(chapters: ChapterState[]): JobProgress {
   return { total: chapters.length, done, failed };
 }
 
+/** Shortcut over manual drag-reordering: sort by original TOC scrape order. */
+export function sortChapters(
+  chapters: ChapterState[],
+  direction: "asc" | "desc",
+): ChapterState[] {
+  const sorted = [...chapters].sort((a, b) => a.ref.index - b.ref.index);
+  return direction === "asc" ? sorted : sorted.reverse();
+}
+
+/** Next chapter to fetch: first pending one, or a failed one still worth retrying. */
+export function pickNextChapter(job: JobRecord): ChapterState | undefined {
+  return job.chapters.find(
+    (c) => c.status === "pending" || (c.status === "failed" && c.attempts < job.settings.maxAttempts),
+  );
+}
+
 /** Toolbar badge text for a job, since the popup can't stay open persistently. */
 export function badgeTextFor(job: JobRecord): string {
   switch (job.phase) {

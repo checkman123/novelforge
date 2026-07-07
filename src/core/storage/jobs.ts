@@ -94,3 +94,10 @@ export async function getChapterContent(
   const db = await getDb();
   return (await db.get("chapterContent", [jobId, index])) ?? null;
 }
+
+/** All stored chapter content for a job, in no particular order. */
+export async function listChapterContent(jobId: string): Promise<StoredChapterContent[]> {
+  const db = await getDb();
+  const range = IDBKeyRange.bound([jobId, -Infinity], [jobId, Infinity]);
+  return db.getAll("chapterContent", range);
+}

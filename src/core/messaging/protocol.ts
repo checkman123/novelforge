@@ -1,5 +1,12 @@
-import type { PageDetection } from "@/core/adapters/types";
-import type { EpubMetadata, JobRecord, JobSettings, ChapterRef, NovelInfo } from "@/core/model/types";
+import type { ExtractedChapter, PageDetection } from "@/core/adapters/types";
+import type {
+  ChapterRef,
+  ChapterState,
+  EpubMetadata,
+  JobRecord,
+  JobSettings,
+  NovelInfo,
+} from "@/core/model/types";
 
 /**
  * Every cross-context message, typed end-to-end.
@@ -25,6 +32,33 @@ export interface MessageMap {
   "job/get": { req: { jobId: string }; res: JobRecord | null };
   "job/list": { req: Record<never, never>; res: JobRecord[] };
   "job/delete": { req: { jobId: string }; res: { ok: boolean } };
+
+  /** popup → background: replace a job's chapter order/skip flags wholesale. */
+  "job/setChapters": {
+    req: { jobId: string; chapters: ChapterState[] };
+    res: { ok: boolean };
+  };
+
+  /** popup → background: edit book title/author/description/cover. */
+  "job/updateMetadata": {
+    req: { jobId: string; metadata: Partial<EpubMetadata> };
+    res: { ok: boolean };
+  };
+
+  /** popup → background: restart a paused job's download loop. */
+  "job/resume": { req: { jobId: string }; res: { ok: boolean } };
+
+  /** popup → content script: fetch the full chapter list for a novel. */
+  "novel/chapterList": { req: { novel: NovelInfo }; res: ChapterRef[] };
+
+  /** content script → popup broadcast: chapter list fetch progress. */
+  "chapterList/progress": { req: { fetched: number }; res: void };
+
+  /** background → content script: fetch + sanitise one chapter's content. */
+  "chapter/fetch": { req: { ref: ChapterRef }; res: ExtractedChapter };
+
+  /** background → offscreen doc: assemble and download a job's EPUB. */
+  "epub/assemble": { req: { jobId: string }; res: { ok: boolean; error?: string } };
 
   /** background → popup broadcast: a job changed. */
   "job/updated": { req: { job: JobRecord }; res: void };

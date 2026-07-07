@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import browser from "webextension-polyfill";
 import { onBroadcast, sendToBackground, sendToTab } from "@/core/messaging/bus";
+import { JobList } from "./JobList";
+import { ReviewAndStart } from "./ReviewAndStart";
 import type { PageDetection } from "@/core/adapters/types";
 import type { JobRecord } from "@/core/model/types";
 
 /**
- * Popup = the whole UI. It answers "is this page supported?" and lists every
- * persisted EPUB job with live progress, so the workbench doesn't depend on
- * chrome.sidePanel (Chrome-only; unsupported on Opera) or on spawning a
- * separate browser tab. Progress while the popup is closed shows up as a
+ * Popup = the whole UI. It answers "is this page supported?", offers to
+ * create an EPUB job for it (Review & Start), and lists every persisted job
+ * with live progress — self-contained, no chrome.sidePanel (Chrome-only;
+ * unsupported on Opera). Progress while the popup is closed shows up as a
  * toolbar badge instead (see background/index.ts).
  */
 
@@ -17,10 +19,11 @@ type DetectionState =
   | { kind: "unsupported" }
   | { kind: "detected"; tabId: number; detection: PageDetection };
 
-function useDetection(): DetectionState {
+function useDetection(): [DetectionState, () => void] {
   const [state, setState] = useState<DetectionState>({ kind: "loading" });
 
-  useEffect(() => {
+  function refresh() {
+    setState({ kind: "loading" });
     void (async () => {
       const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
       if (!tab?.id || !tab.url) return setState({ kind: "unsupported" });
@@ -36,9 +39,11 @@ function useDetection(): DetectionState {
         setState({ kind: "unsupported" });
       }
     })();
-  }, []);
+  }
 
-  return state;
+  useEffect(refresh, []);
+
+  return [state, refresh];
 }
 
 function useJobs(): JobRecord[] | null {
@@ -54,12 +59,23 @@ function useJobs(): JobRecord[] | null {
 }
 
 export function PopupApp() {
-  const detection = useDetection();
+  const [detection, refreshDetection] = useDetection();
   const jobs = useJobs();
+  const [reviewing, setReviewing] = useState(false);
 
   return (
     <main style={{ width: 320, padding: 16, display: "grid", gap: 12 }}>
-      <h1 style={{ margin: 0, fontSize: 16 }}>NovelForge</h1>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <h1 style={{ margin: 0, fontSize: 16 }}>NovelForge</h1>
+        <button
+          type="button"
+          title="Re-check the current page"
+          aria-label="Refresh"
+          onClick={refreshDetection}
+        >
+          ⟳
+        </button>
+      </div>
 
       {detection.kind === "loading" && <p className="muted">Checking this page…</p>}
 
@@ -72,40 +88,32 @@ export function PopupApp() {
         </div>
       )}
 
-      {detection.kind === "detected" && (
+      {detection.kind === "detected" && !reviewing && (
         <div className="card">
           <p style={{ margin: 0 }}>
             <strong>{detection.detection.siteLabel}</strong> ·{" "}
             <span className="muted">{detection.detection.pageKind} page</span>
           </p>
           {detection.detection.novel && (
-            <p style={{ marginBottom: 0 }}>{detection.detection.novel.title}</p>
+            <>
+              <p style={{ marginBottom: 8 }}>{detection.detection.novel.title}</p>
+              <button type="button" onClick={() => setReviewing(true)}>
+                Create EPUB
+              </button>
+            </>
           )}
         </div>
       )}
 
-      {jobs === null && <p className="muted">Loading jobs…</p>}
-
-      {jobs?.length === 0 && (
-        <div className="card">
-          <p style={{ margin: 0 }}>No EPUB jobs yet.</p>
-          <p className="muted" style={{ marginBottom: 0 }}>
-            Open a novel page and start one from here.
-          </p>
-        </div>
+      {detection.kind === "detected" && reviewing && detection.detection.novel && (
+        <ReviewAndStart
+          tabId={detection.tabId}
+          novel={detection.detection.novel}
+          onDone={() => setReviewing(false)}
+        />
       )}
 
-      {jobs?.map((job) => (
-        <div className="card" key={job.id}>
-          <p style={{ margin: 0 }}>
-            <strong>{job.metadata.title}</strong>
-          </p>
-          <p className="muted" style={{ margin: "4px 0 0" }}>
-            {job.phase} · {job.progress.done}/{job.progress.total} chapters
-            {job.progress.failed > 0 && ` · ${job.progress.failed} failed`}
-          </p>
-        </div>
-      ))}
+      {jobs === null ? <p className="muted">Loading jobs…</p> : <JobList jobs={jobs} />}
     </main>
   );
 }
